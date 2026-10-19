@@ -149,6 +149,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
 else()
   set(LLVM_WASI_OPTIONAL_SOURCES raw_socket_stream.cpp Program.cpp Signals.cpp)
   set(LLVM_WASI_STUBS)
+  set(LLVM_OPTIONAL_SOURCES ${LLVM_OPTIONAL_SOURCES} WASIStubs.cpp)
 endif()
 
 add_llvm_component_library(LLVMSupport
