@@ -18,7 +18,7 @@
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Valgrind.h"
 
-#ifdef HAVE_SYS_MMAN_H
+#if defined(HAVE_SYS_MMAN_H) || defined(__wasi__)
 #include <sys/mman.h>
 #endif
 

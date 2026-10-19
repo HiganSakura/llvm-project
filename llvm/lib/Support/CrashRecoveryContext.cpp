@@ -335,6 +335,11 @@ static void uninstallExceptionOrSignalHandlers() {
   }
 }
 
+#elif defined(__wasi__)
+
+static void installExceptionOrSignalHandlers(bool) {}
+static void uninstallExceptionOrSignalHandlers() {}
+
 #else // !_WIN32
 
 // Generic POSIX implementation.
@@ -425,6 +430,10 @@ static void uninstallExceptionOrSignalHandlers() {
 #endif // !_WIN32
 
 bool CrashRecoveryContext::RunSafely(function_ref<void()> Fn) {
+#if defined(__wasi__)
+  Fn();
+  return true;
+#else
   // If crash recovery is disabled, do nothing.
   if (gCrashRecoveryEnabled) {
     assert(!Impl && "Crash recovery context already initialized!");
@@ -439,6 +448,7 @@ bool CrashRecoveryContext::RunSafely(function_ref<void()> Fn) {
 
   Fn();
   return true;
+#endif
 }
 
 #endif // !_MSC_VER
@@ -483,6 +493,8 @@ bool CrashRecoveryContext::throwIfCrash(int RetCode) {
     return false;
 #if defined(_WIN32)
   ::RaiseException(RetCode, 0, 0, NULL);
+#elif defined(__wasi__)
+  abort();
 #else
   llvm::sys::unregisterHandlers();
   raise(RetCode - 128);

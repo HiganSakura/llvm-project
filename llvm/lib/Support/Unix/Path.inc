@@ -31,7 +31,9 @@
 #endif
 
 #include <dirent.h>
+#if !defined(__wasi__)
 #include <pwd.h>
+#endif
 
 #ifdef __APPLE__
 #include <copyfile.h>
@@ -1494,6 +1496,9 @@ bool home_directory(SmallVectorImpl<char> &result) {
   std::unique_ptr<char[]> Buf;
   char *RequestedDir = getenv("HOME");
   if (!RequestedDir) {
+#if defined(__wasi__)
+    return false;
+#else
     long BufSize = sysconf(_SC_GETPW_R_SIZE_MAX);
     if (BufSize <= 0)
       BufSize = 16384;
@@ -1503,6 +1508,7 @@ bool home_directory(SmallVectorImpl<char> &result) {
     getpwuid_r(getuid(), &Pwd, Buf.get(), BufSize, &pw);
     if (pw && pw->pw_dir)
       RequestedDir = pw->pw_dir;
+#endif
   }
   if (!RequestedDir)
     return false;

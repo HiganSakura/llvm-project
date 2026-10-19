@@ -136,6 +136,9 @@ void Process::GetTimeUsage(TimePoint<> &elapsed,
 // their operation. To prevent the disk from filling up, this function does
 // what's necessary to prevent their generation.
 void Process::PreventCoreFiles() {
+#if defined(__wasi__)
+  return;
+#else
   struct rlimit rlim;
   getrlimit(RLIMIT_CORE, &rlim);
 #ifdef __linux__
@@ -188,6 +191,7 @@ void Process::PreventCoreFiles() {
 #endif
 
   coreFilesPrevented = true;
+#endif
 }
 
 std::optional<std::string> Process::GetEnv(StringRef Name) {
@@ -252,6 +256,11 @@ std::error_code Process::FixupStandardFileDescriptors() {
 }
 
 std::error_code Process::SafelyCloseFileDescriptor(int FD) {
+#if defined(__wasi__)
+  if (::close(FD) < 0)
+    return std::error_code(errno, std::generic_category());
+  return std::error_code();
+#else
   // Create a signal set filled with *all* signals.
   sigset_t FullSet, SavedSet;
   if (sigfillset(&FullSet) < 0 || sigfillset(&SavedSet) < 0)
@@ -284,6 +293,7 @@ std::error_code Process::SafelyCloseFileDescriptor(int FD) {
   if (ErrnoFromClose)
     return std::error_code(ErrnoFromClose, std::generic_category());
   return std::error_code(EC, std::generic_category());
+#endif
 }
 
 bool Process::StandardInIsUserInput() {
@@ -320,7 +330,7 @@ static unsigned getColumns(int FileID) {
   // instead if it isn't available.
   unsigned Columns = 0;
 
-#if defined(HAVE_SYS_IOCTL_H) && !defined(__sun__)
+#if defined(HAVE_SYS_IOCTL_H) && !defined(__sun__) && !defined(__wasi__)
   struct winsize ws;
   if (ioctl(FileID, TIOCGWINSZ, &ws) == 0)
     Columns = ws.ws_col;

@@ -1,5 +1,9 @@
 include(GetLibraryName)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+  set(LLVM_OPTIONAL_SOURCES raw_socket_stream.cpp Program.cpp)
+endif()
+
 # Ensure that libSupport does not carry any static global initializer.
 # libSupport can be embedded in use cases where we don't want to load all
 # cl::opt unless we want to parse the command line.
@@ -293,7 +297,8 @@ add_llvm_component_library(LLVMSupport
   raw_os_ostream.cpp
   raw_ostream.cpp
   raw_ostream_proxy.cpp
-  raw_socket_stream.cpp
+  $<$<NOT:$<STREQUAL:${CMAKE_SYSTEM_NAME},WASI>>:raw_socket_stream.cpp>
+  $<$<NOT:$<STREQUAL:${CMAKE_SYSTEM_NAME},WASI>>:Program.cpp>
   regcomp.c
   regerror.c
   regexec.c
@@ -312,7 +317,6 @@ add_llvm_component_library(LLVMSupport
   Memory.cpp
   Path.cpp
   Process.cpp
-  Program.cpp
   ProgramStack.cpp
   RWMutex.cpp
   Signals.cpp
