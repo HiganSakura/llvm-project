@@ -26,7 +26,7 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef HAVE_SYS_MMAN_H
+#if defined(HAVE_SYS_MMAN_H) || defined(__wasi__)
 #include <sys/mman.h>
 #endif
 
@@ -328,6 +328,9 @@ std::string getMainExecutable(const char *argv0, void *MainAddr) {
       return std::string(real_path);
     break; // Found entry, but realpath failed.
   }
+#elif defined(__wasi__)
+  (void)MainAddr;
+  return "";
 #elif defined(HAVE_DLOPEN)
   // Use dladdr to get executable path if available.
   Dl_info DLInfo;
@@ -571,6 +574,9 @@ static bool is_local_impl(struct STATVFS &Vfs) {
   // The file system can have an arbitrary structure on z/OS; must go with the
   // conservative answer.
   return false;
+#elif defined(__wasi__)
+  (void)Vfs;
+  return true;
 #else
   return !!(STATVFS_F_FLAG(Vfs) & MNT_LOCAL);
 #endif
@@ -706,6 +712,10 @@ static void expandTildeExpr(SmallVectorImpl<char> &Path) {
 
   // This is a string of the form ~username/, look up this user's entry in the
   // password database.
+#if defined(__wasi__)
+  (void)Expr;
+  return;
+#else
   std::unique_ptr<char[]> Buf;
   long BufSize = sysconf(_SC_GETPW_R_SIZE_MAX);
   if (BufSize <= 0)
@@ -725,6 +735,7 @@ static void expandTildeExpr(SmallVectorImpl<char> &Path) {
   Path.clear();
   Path.append(Entry->pw_dir, Entry->pw_dir + strlen(Entry->pw_dir));
   llvm::sys::path::append(Path, Storage);
+#endif
 }
 
 void expand_tilde(const Twine &path, SmallVectorImpl<char> &dest) {
@@ -805,11 +816,15 @@ std::error_code status(int FD, file_status &Result) {
 }
 
 unsigned getUmask() {
+#if defined(__wasi__)
+  return 0;
+#else
   // Chose arbitary new mask and reset the umask to the old mask.
   // umask(2) never fails so ignore the return of the second call.
   unsigned Mask = ::umask(0);
   (void)::umask(Mask);
   return Mask;
+#endif
 }
 
 std::error_code setPermissions(const Twine &Path, perms Permissions) {
@@ -1481,11 +1496,18 @@ std::error_code readlink(const Twine &path, SmallVectorImpl<char> &dest) {
 }
 
 std::error_code changeFileOwnership(int FD, uint32_t Owner, uint32_t Group) {
+#if defined(__wasi__)
+  (void)FD;
+  (void)Owner;
+  (void)Group;
+  return std::make_error_code(std::errc::function_not_supported);
+#else
   auto FChown = [&]() { return ::fchown(FD, Owner, Group); };
   // Retry if fchown call fails due to interruption.
   if ((sys::RetryAfterSignal(-1, FChown)) < 0)
     return errnoAsErrorCode();
   return std::error_code();
+#endif
 }
 
 } // end namespace fs

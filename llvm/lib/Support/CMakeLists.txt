@@ -1,9 +1,5 @@
 include(GetLibraryName)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
-  set(LLVM_OPTIONAL_SOURCES raw_socket_stream.cpp Program.cpp)
-endif()
-
 # Ensure that libSupport does not carry any static global initializer.
 # libSupport can be embedded in use cases where we don't want to load all
 # cl::opt unless we want to parse the command line.
@@ -145,6 +141,15 @@ if (UNIX AND "${CMAKE_SYSTEM_NAME}" MATCHES "AIX")
 endif()
 
 add_subdirectory(BLAKE3)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+  set(LLVM_OPTIONAL_SOURCES raw_socket_stream.cpp Program.cpp Signals.cpp)
+  set(LLVM_WASI_OPTIONAL_SOURCES)
+  set(LLVM_WASI_STUBS WASIStubs.cpp)
+else()
+  set(LLVM_WASI_OPTIONAL_SOURCES raw_socket_stream.cpp Program.cpp Signals.cpp)
+  set(LLVM_WASI_STUBS)
+endif()
 
 add_llvm_component_library(LLVMSupport
   ABIBreak.cpp
@@ -297,8 +302,8 @@ add_llvm_component_library(LLVMSupport
   raw_os_ostream.cpp
   raw_ostream.cpp
   raw_ostream_proxy.cpp
-  $<$<NOT:$<STREQUAL:${CMAKE_SYSTEM_NAME},WASI>>:raw_socket_stream.cpp>
-  $<$<NOT:$<STREQUAL:${CMAKE_SYSTEM_NAME},WASI>>:Program.cpp>
+  ${LLVM_WASI_OPTIONAL_SOURCES}
+  ${LLVM_WASI_STUBS}
   regcomp.c
   regerror.c
   regexec.c
@@ -319,7 +324,6 @@ add_llvm_component_library(LLVMSupport
   Process.cpp
   ProgramStack.cpp
   RWMutex.cpp
-  Signals.cpp
   Threading.cpp
   Valgrind.cpp
   Watchdog.cpp
